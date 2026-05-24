@@ -14,6 +14,7 @@ export default function ScreenContainer({ children, scrollable = false }) {
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
         >
           {children}
         </ScrollView>

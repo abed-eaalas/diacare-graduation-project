@@ -21,13 +21,12 @@ const COUNTRY_CODES = [
 ];
 
 export default function AuthScreen() {
-  const { login, signup } = useApp();
+  const { login, signup, isLoading } = useApp();
   const [isSignup, setIsSignup] = useState(false);
-  const [signupMethod, setSignupMethod] = useState('email');
   const [showCountryModal, setShowCountryModal] = useState(false);
 
   const [loginForm, setLoginForm] = useState({
-    identifier: '',
+    email: '',
     password: '',
   });
 
@@ -35,16 +34,9 @@ export default function AuthScreen() {
     fullName: '',
     age: '',
     email: '',
-    countryCode: '+961',
-    phoneNumber: '',
     password: '',
     confirmPassword: '',
   });
-
-  const selectedCountry = useMemo(
-    () => COUNTRY_CODES.find((item) => item.value === signupForm.countryCode) || COUNTRY_CODES[0],
-    [signupForm.countryCode]
-  );
 
   const handleLoginChange = (key, value) => {
     setLoginForm((prev) => ({ ...prev, [key]: value }));
@@ -63,57 +55,75 @@ export default function AuthScreen() {
       return;
     }
 
-    if (key === 'phoneNumber') {
-      const numbersOnly = value.replace(/[^0-9]/g, '');
-      setSignupForm((prev) => ({ ...prev, phoneNumber: numbersOnly }));
-      return;
-    }
-
     setSignupForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim());
-  const isValidPhone = (value) => /^\d{7,14}$/.test(String(value).trim());
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
 
   const handleSubmit = () => {
+    console.log('HANDLE SUBMIT');
     if (!isSignup) {
-      login();
+      console.log('LOGIN BUTTON PRESSED');
+      const email = loginForm.email.trim();
+      const password = loginForm.password.trim();
+
+      if (!email || !password) {
+        console.log('LOGIN VALIDATION FAILED: missing email or password');
+        alert('Please enter both email and password.');
+        return;
+      }
+
+      if (!isValidEmail(email)) {
+        console.log('LOGIN VALIDATION FAILED: invalid email format');
+        alert('Please enter a valid email address.');
+        return;
+      }
+
+      login(email, password);
       return;
     }
 
+    console.log('SIGNUP BUTTON PRESSED');
     const fullName = signupForm.fullName.trim();
+    const email = signupForm.email.trim();
     const password = signupForm.password.trim();
     const confirmPassword = signupForm.confirmPassword.trim();
     const age = Number(signupForm.age);
 
     if (!fullName) {
+      console.log('SIGNUP VALIDATION FAILED: missing full name');
       alert('Please enter your full name.');
       return;
     }
 
     if (Number.isNaN(age) || age < 0 || age > 100) {
+      console.log('SIGNUP VALIDATION FAILED: invalid age');
       alert('Age must be a number from 0 to 100.');
       return;
     }
 
-    if (signupMethod === 'email') {
-      if (!isValidEmail(signupForm.email)) {
-        alert('Please enter a valid email address.');
-        return;
-      }
-    } else {
-      if (!isValidPhone(signupForm.phoneNumber)) {
-        alert('Please enter a valid phone number.');
-        return;
-      }
+    if (!isValidEmail(email)) {
+      console.log('SIGNUP VALIDATION FAILED: invalid email format');
+      alert('Please enter a valid email address.');
+      return;
     }
 
     if (password.length < 6) {
+      console.log('SIGNUP VALIDATION FAILED: password too short');
       alert('Password must be at least 6 characters.');
       return;
     }
 
     if (password !== confirmPassword) {
+      console.log('SIGNUP VALIDATION FAILED: password mismatch');
       alert('Password and confirm password do not match.');
       return;
     }
@@ -121,10 +131,8 @@ export default function AuthScreen() {
     signup({
       name: fullName,
       age,
-      email: signupMethod === 'email' ? signupForm.email.trim() : '',
-      phoneCountryCode: signupMethod === 'phone' ? signupForm.countryCode : '',
-      phoneNumber: signupMethod === 'phone' ? signupForm.phoneNumber.trim() : '',
-      authMethod: signupMethod,
+      email,
+      password,
     });
   };
 
@@ -141,10 +149,12 @@ export default function AuthScreen() {
         {!isSignup ? (
           <>
             <AppInput
-              label="Email or Phone"
-              placeholder="Enter email or phone"
-              value={loginForm.identifier}
-              onChangeText={(t) => handleLoginChange('identifier', t)}
+              label="Email"
+              placeholder="Enter email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={loginForm.email}
+              onChangeText={(t) => handleLoginChange('email', t)}
             />
             <AppInput
               label="Password"
@@ -173,71 +183,14 @@ export default function AuthScreen() {
               maxLength={3}
             />
 
-            <View style={styles.modeRow}>
-              <Pressable
-                style={[
-                  styles.modeButton,
-                  signupMethod === 'email' && styles.modeButtonActive,
-                ]}
-                onPress={() => setSignupMethod('email')}
-              >
-                <Text
-                  style={[
-                    styles.modeText,
-                    signupMethod === 'email' && styles.modeTextActive,
-                  ]}
-                >
-                  Email
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.modeButton,
-                  signupMethod === 'phone' && styles.modeButtonActive,
-                ]}
-                onPress={() => setSignupMethod('phone')}
-              >
-                <Text
-                  style={[
-                    styles.modeText,
-                    signupMethod === 'phone' && styles.modeTextActive,
-                  ]}
-                >
-                  Phone
-                </Text>
-              </Pressable>
-            </View>
-
-            {signupMethod === 'email' ? (
-              <AppInput
-                label="Email"
-                placeholder="Enter a valid email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={signupForm.email}
-                onChangeText={(t) => handleSignupChange('email', t)}
-              />
-            ) : (
-              <>
-                <Text style={styles.dropdownLabel}>Country code</Text>
-                <Pressable
-                  style={styles.dropdown}
-                  onPress={() => setShowCountryModal(true)}
-                >
-                  <Text style={styles.dropdownText}>{selectedCountry.label}</Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
-                </Pressable>
-
-                <AppInput
-                  label="Phone Number"
-                  placeholder="Enter your phone number"
-                  keyboardType="number-pad"
-                  value={signupForm.phoneNumber}
-                  onChangeText={(t) => handleSignupChange('phoneNumber', t)}
-                />
-              </>
-            )}
+            <AppInput
+              label="Email"
+              placeholder="Enter a valid email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={signupForm.email}
+              onChangeText={(t) => handleSignupChange('email', t)}
+            />
 
             <AppInput
               label="Password"
@@ -258,12 +211,12 @@ export default function AuthScreen() {
         )}
 
         <AppButton title={isSignup ? 'Sign Up' : 'Login'} onPress={handleSubmit} />
-        <AppButton title="Continue with Google" type="secondary" onPress={login} />
 
         <Text style={styles.switch} onPress={() => setIsSignup(!isSignup)}>
           {isSignup ? 'Already have an account? Login' : 'No account? Sign Up'}
         </Text>
       </View>
+
 
       <Modal visible={showCountryModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>

@@ -5,6 +5,7 @@ import { colors, radius, spacing } from '../utils/theme';
 
 export default function AppButton({ title, onPress, type = 'primary', style }) {
   const { user } = useApp();
+  const isLargeText = user?.largeText || false;
 
   return (
     <Pressable
@@ -20,7 +21,7 @@ export default function AppButton({ title, onPress, type = 'primary', style }) {
         style={[
           styles.text,
           type !== 'primary' && styles.altText,
-          user.largeText && styles.textLarge,
+          isLargeText && styles.textLarge,
         ]}
       >
         {title}

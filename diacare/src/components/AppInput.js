@@ -5,15 +5,16 @@ import { colors, radius, spacing } from '../utils/theme';
 
 export default function AppInput({ label, ...props }) {
   const { user } = useApp();
+  const isLargeText = user?.largeText || false;
 
   return (
     <View style={styles.wrapper}>
       {label ? (
-        <Text style={[styles.label, user.largeText && styles.labelLarge]}>{label}</Text>
+        <Text style={[styles.label, isLargeText && styles.labelLarge]}>{label}</Text>
       ) : null}
       <TextInput
         placeholderTextColor={colors.muted}
-        style={[styles.input, user.largeText && styles.inputLarge]}
+        style={[styles.input, isLargeText && styles.inputLarge]}
         {...props}
       />
     </View>

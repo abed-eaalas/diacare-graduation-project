@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
+import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   chatbotMessages,
   familyAlerts as initialFamilyAlerts,
@@ -11,28 +13,154 @@ import {
 
 const AppContext = createContext();
 
+// For physical devices, derive host from Expo to avoid localhost issues
+const getHost = () => {
+  const hostUri = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
+  if (hostUri) {
+    return hostUri.split(':')[0];
+  }
+  return '192.168.0.146';
+};
+
+const normalizeBase = (value) => (value ? value.replace(/\/$/, '') : value);
+
+const API_BASE = 'http://192.168.0.146:5000';
+const API_URL = `${API_BASE}/api`;
+
+const logHealthCheck = async () => {
+  try {
+    const res = await fetch(`${API_BASE}/health`, { method: 'GET' });
+    if (res.ok) {
+      console.log('HEALTH OK');
+    } else {
+      console.log('HEALTH NOT OK', res.status);
+    }
+  } catch (error) {
+    console.log('HEALTH ERROR', error);
+  }
+};
+
 export const AppProvider = ({ children }) => {
   const [user, setUser] = useState(initialUser);
+  const [token, setToken] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Restore existing mock states
   const [glucoseLogs, setGlucoseLogs] = useState(glucoseReadings);
   const [meds, setMeds] = useState(medications);
   const [chatMessages, setChatMessages] = useState(chatbotMessages);
   const [alerts, setAlerts] = useState(initialFamilyAlerts);
-
-  // ✅ NEW STATES (FIX)
   const [mealLogs, setMealLogs] = useState([]);
   const [mealPlan, setMealPlan] = useState(initialMealPlan);
 
-  const login = () => setUser((prev) => ({ ...prev, isLoggedIn: true }));
+  // Load token on startup
+  useEffect(() => {
+    const loadStorageData = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem('userToken');
+        const storedUser = await AsyncStorage.getItem('userData');
+        if (storedToken && storedUser) {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.error('Failed to load auth data', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadStorageData();
+  }, []);
 
-  const signup = (payload) =>
-    setUser((prev) => ({
-      ...prev,
-      ...payload,
-      isLoggedIn: true,
-      profileCompleted: false,
-    }));
+  const login = async (email, password) => {
+    console.log('LOGIN FUNCTION CALLED');
+    try {
+      await logHealthCheck();
+      const loginUrl = `${API_URL}/auth/login`;
+      console.log('AUTH API:', loginUrl);
+      console.log('RAW FETCH LOGIN START');
+      const response = await fetch(loginUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
 
-  const logout = () => setUser(initialUser);
+      if (response.ok) {
+        const fullUser = { ...initialUser, ...data, isLoggedIn: true };
+        setUser(fullUser);
+        setToken(data.token);
+        await AsyncStorage.setItem('userToken', data.token);
+        await AsyncStorage.setItem('userData', JSON.stringify(fullUser));
+      } else {
+        const errorMsg = data.message || 'Login failed';
+        if (errorMsg.toLowerCase().includes('invalid email or password') || errorMsg.toLowerCase().includes('invalid')) {
+          alert('Wrong email or password');
+        } else if (errorMsg.toLowerCase().includes('buffering timed out')) {
+          alert('Server temporarily unavailable. Please try again.');
+        } else if (errorMsg.toLowerCase().includes('temporarily unavailable')) {
+          alert('Server temporarily unavailable. Please try again.');
+        } else {
+          alert(errorMsg);
+        }
+      }
+    } catch (error) {
+      console.log('AUTH FETCH ERROR', error);
+      console.error('Login error:', error);
+      alert('Cannot connect to server. Please ensure the backend is running at ' + API_BASE);
+    }
+  };
+
+  const signup = async (payload) => {
+    console.log('SIGNUP FUNCTION CALLED');
+    try {
+      await logHealthCheck();
+      const signupUrl = `${API_URL}/auth/signup`;
+      console.log('AUTH API:', signupUrl);
+      console.log('RAW FETCH SIGNUP START');
+      const response = await fetch(signupUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        const fullUser = {
+          ...initialUser,
+          ...data,
+          isLoggedIn: true,
+          profileCompleted: false,
+        };
+        setUser(fullUser);
+        setToken(data.token);
+        await AsyncStorage.setItem('userToken', data.token);
+        await AsyncStorage.setItem('userData', JSON.stringify(fullUser));
+      } else {
+        const errorMsg = data.message || 'Signup failed';
+        if (errorMsg.toLowerCase().includes('buffering timed out')) {
+          alert('Server temporarily unavailable. Please try again.');
+          return;
+        }
+        if (errorMsg.toLowerCase().includes('temporarily unavailable')) {
+          alert('Server temporarily unavailable. Please try again.');
+        } else {
+          alert(errorMsg);
+        }
+      }
+    } catch (error) {
+      console.log('AUTH FETCH ERROR', error);
+      console.error('Signup error:', error);
+      alert('Cannot connect to server. Please ensure the backend is running at ' + API_BASE);
+    }
+  };
+
+  const logout = async () => {
+    setUser(initialUser);
+    setToken(null);
+    await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.removeItem('userData');
+  };
 
   const completeProfile = (payload) =>
     setUser((prev) => ({
@@ -241,6 +369,7 @@ const regenerateMealPlan = () => {
   const value = useMemo(
     () => ({
       user,
+      isLoading,
       glucoseLogs,
       meds,
       mealPlan,
@@ -264,7 +393,7 @@ const regenerateMealPlan = () => {
       sendChatMessage,
       sendEmergencyAlert,
     }),
-    [user, glucoseLogs, meds, mealLogs, alerts, chatMessages, mealPlan]
+    [user, isLoading, glucoseLogs, meds, mealLogs, alerts, chatMessages, mealPlan]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
