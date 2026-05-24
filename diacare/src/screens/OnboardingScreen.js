@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ScreenContainer from '../components/ScreenContainer';
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
@@ -18,11 +18,6 @@ const STEPS = [
     title: 'Food profile',
     subtitle: 'Tell the app what food works best for you',
   },
-  {
-    key: 'support',
-    title: 'Support and safety',
-    subtitle: 'Optional details you can finish now or later',
-  },
 ];
 
 export default function OnboardingScreen() {
@@ -33,15 +28,10 @@ export default function OnboardingScreen() {
     weight: user.weight || '',
     height: user.height || '',
     diabetesType: user.diabetesType || '',
-    conditions: user.conditions || '',
     allergies: user.allergies || '',
-    foodPreferences: user.foodPreferences || '',
-    restrictions: user.restrictions || '',
     medications: user.medications || '',
-    emergencyContact: user.emergencyContact?.phone || '',
     glucoseTargetMin: String(user.glucoseTargetMin || ''),
     glucoseTargetMax: String(user.glucoseTargetMax || ''),
-    dailyHabits: user.dailyHabits || '',
   });
 
   const currentStep = STEPS[stepIndex];
@@ -88,8 +78,21 @@ export default function OnboardingScreen() {
             <AppInput label="Gender" value={form.gender} onChangeText={(t) => handleChange('gender', t)} />
             <AppInput label="Weight" value={form.weight} onChangeText={(t) => handleChange('weight', t)} />
             <AppInput label="Height" value={form.height} onChangeText={(t) => handleChange('height', t)} />
-            <AppInput label="Diabetes Type" value={form.diabetesType} onChangeText={(t) => handleChange('diabetesType', t)} />
-            <AppInput label="Medical Conditions" value={form.conditions} onChangeText={(t) => handleChange('conditions', t)} />
+            <Text style={styles.inputLabel}>Diabetes Type</Text>
+            <View style={styles.choiceRow}>
+              {['Type 1', 'Type 2'].map((type) => {
+                const isSelected = form.diabetesType === type;
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    style={[styles.choiceButton, isSelected && styles.choiceButtonSelected]}
+                    onPress={() => handleChange('diabetesType', type)}
+                  >
+                    <Text style={[styles.choiceText, isSelected && styles.choiceTextSelected]}>{type}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
             <AppInput label="Target Min" value={form.glucoseTargetMin} onChangeText={(t) => handleChange('glucoseTargetMin', t)} keyboardType="numeric" />
             <AppInput label="Target Max" value={form.glucoseTargetMax} onChangeText={(t) => handleChange('glucoseTargetMax', t)} keyboardType="numeric" />
           </>
@@ -98,16 +101,7 @@ export default function OnboardingScreen() {
         {currentStep.key === 'food' ? (
           <>
             <AppInput label="Allergies" value={form.allergies} onChangeText={(t) => handleChange('allergies', t)} />
-            <AppInput label="Food Preferences" value={form.foodPreferences} onChangeText={(t) => handleChange('foodPreferences', t)} />
-            <AppInput label="Dietary Restrictions" value={form.restrictions} onChangeText={(t) => handleChange('restrictions', t)} />
             <AppInput label="Medications" value={form.medications} onChangeText={(t) => handleChange('medications', t)} />
-          </>
-        ) : null}
-
-        {currentStep.key === 'support' ? (
-          <>
-            <AppInput label="Emergency Contact" value={form.emergencyContact} onChangeText={(t) => handleChange('emergencyContact', t)} />
-            <AppInput label="Daily Habits / Lifestyle" value={form.dailyHabits} onChangeText={(t) => handleChange('dailyHabits', t)} />
           </>
         ) : null}
 
@@ -167,5 +161,34 @@ const styles = StyleSheet.create({
   },
   rowButton: {
     flex: 1,
+  },
+  inputLabel: {
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  choiceRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: spacing.sm,
+  },
+  choiceButton: {
+    flex: 1,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  choiceButtonSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  choiceText: {
+    color: colors.text,
+    fontWeight: '600',
+  },
+  choiceTextSelected: {
+    color: colors.white,
   },
 });

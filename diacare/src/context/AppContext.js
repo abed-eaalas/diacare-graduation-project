@@ -162,12 +162,64 @@ export const AppProvider = ({ children }) => {
     await AsyncStorage.removeItem('userData');
   };
 
-  const completeProfile = (payload) =>
-    setUser((prev) => ({
-      ...prev,
-      ...payload,
-      profileCompleted: true,
-    }));
+  const completeProfile = async (payload) => {
+    const targetGlucoseRange = `${payload.glucoseTargetMin}-${payload.glucoseTargetMax}`;
+    const profileUpdate = {
+      gender: payload.gender,
+      weight: payload.weight,
+      height: payload.height,
+      diabetesType: payload.diabetesType,
+      targetGlucoseRange,
+    };
+
+    if (!token) {
+      setUser((prev) => ({
+        ...prev,
+        ...payload,
+        profileCompleted: true,
+      }));
+      return;
+    }
+
+    try {
+      console.log('PROFILE UPDATE START');
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(profileUpdate),
+      });
+      console.log('PROFILE RESPONSE STATUS', response.status);
+      const raw = await response.text();
+      console.log('PROFILE RAW RESPONSE', raw);
+      const data = raw ? JSON.parse(raw) : {};
+      console.log('PROFILE PARSE SUCCESS');
+
+      if (response.ok) {
+        setUser((prev) => ({
+          ...prev,
+          ...data,
+          profileCompleted: true,
+        }));
+      } else {
+        console.log('PROFILE UPDATE FAILED', data?.message || 'Unknown error');
+        setUser((prev) => ({
+          ...prev,
+          ...payload,
+          profileCompleted: true,
+        }));
+      }
+    } catch (error) {
+      console.log('PROFILE UPDATE ERROR', error);
+      setUser((prev) => ({
+        ...prev,
+        ...payload,
+        profileCompleted: true,
+      }));
+    }
+  };
 
   const toggleKidMode = () =>
     setUser((prev) => ({ ...prev, kidMode: !prev.kidMode }));

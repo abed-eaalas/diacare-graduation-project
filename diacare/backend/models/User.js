@@ -25,6 +25,28 @@ const userSchema = mongoose.Schema(
     age: {
       type: Number,
     },
+    fullName: {
+      type: String,
+    },
+    gender: {
+      type: String,
+    },
+    weight: {
+      type: String,
+    },
+    height: {
+      type: String,
+    },
+    diabetesType: {
+      type: String,
+    },
+    targetGlucoseRange: {
+      type: String,
+    },
+    profileCompleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -34,7 +56,7 @@ const userSchema = mongoose.Schema(
 // Encrypt password using bcrypt
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
-    next();
+    return;
   }
 
   const salt = await bcrypt.genSalt(10);

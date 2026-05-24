@@ -32,6 +32,7 @@ const registerUser = async (req, res) => {
         name: user.name,
         email: user.email,
         age: user.age,
+        profileCompleted: user.profileCompleted,
         token: generateToken(user._id),
       });
     } else {
@@ -62,6 +63,7 @@ const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         age: user.age,
+        profileCompleted: user.profileCompleted,
         token: generateToken(user._id),
       });
     } else {
@@ -94,8 +96,81 @@ const getMe = async (req, res) => {
   }
 };
 
+// @desc    Get current user profile
+// @route   GET /api/profile
+// @access  Private
+const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('-password');
+
+    if (user) {
+      res.json(user);
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server temporarily unavailable. Please try again.' });
+  }
+};
+
+// @desc    Update current user profile
+// @route   PUT /api/profile
+// @access  Private
+const updateProfile = async (req, res) => {
+  try {
+    console.log('PROFILE REQ USER', req.user);
+    console.log('PROFILE BODY', req.body);
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const allowedFields = [
+      'fullName',
+      'age',
+      'gender',
+      'weight',
+      'height',
+      'diabetesType',
+      'targetGlucoseRange',
+    ];
+
+    allowedFields.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        user[field] = req.body[field];
+      }
+    });
+
+    user.profileCompleted = true;
+
+    console.log('PROFILE BEFORE SAVE', user);
+
+    const updatedUser = await user.save();
+
+    res.json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      age: updatedUser.age,
+      fullName: updatedUser.fullName,
+      gender: updatedUser.gender,
+      weight: updatedUser.weight,
+      height: updatedUser.height,
+      diabetesType: updatedUser.diabetesType,
+      targetGlucoseRange: updatedUser.targetGlucoseRange,
+      profileCompleted: updatedUser.profileCompleted,
+    });
+  } catch (error) {
+    console.error('UPDATE PROFILE ERROR', error);
+    res.status(500).json({ message: 'Server temporarily unavailable. Please try again.' });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getMe,
+  getProfile,
+  updateProfile,
 };
