@@ -23,7 +23,7 @@ export default function ChatbotScreen() {
 
   const speakLatestBot = () => {
     const bot = [...chatMessages].reverse().find((m) => m.from === 'bot');
-    if (bot) {
+    if (bot && user.voiceGuidance) {
       Speech.speak(bot.text);
     }
   };
@@ -52,11 +52,6 @@ export default function ChatbotScreen() {
         <SectionTitle
           title="AI Assistant"
           subtitle="Text and voice support"
-          right={
-            <Text onPress={speakLatestBot} style={styles.voice}>
-              Voice Reading
-            </Text>
-          }
         />
 
         <FlatList
@@ -106,6 +101,24 @@ export default function ChatbotScreen() {
               textAlignVertical="top"
               maxLength={300}
             />
+
+            <Pressable
+              disabled={!user.voiceGuidance}
+              style={({ pressed }) => [
+                styles.voiceButton,
+                !user.voiceGuidance && styles.voiceButtonDisabled,
+                pressed && user.voiceGuidance && styles.voiceButtonPressed,
+              ]}
+              onPress={speakLatestBot}
+              accessibilityRole="button"
+              accessibilityLabel="Play latest AI reply"
+            >
+              <Ionicons
+                name="volume-high"
+                size={22}
+                color={user.voiceGuidance ? colors.primary : colors.muted}
+              />
+            </Pressable>
 
             <Pressable
               style={({ pressed }) => [
@@ -211,6 +224,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 6,
+  },
+  voiceButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  voiceButtonPressed: {
+    opacity: 0.75,
+  },
+  voiceButtonDisabled: {
+    opacity: 0.45,
   },
   sendButtonPressed: {
     opacity: 0.85,

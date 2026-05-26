@@ -34,8 +34,8 @@ export default function AccessibilityScreen() {
         </Text>
 
         <ToggleRow
-          title="Voice guidance"
-          subtitle="Read-aloud guidance for better support"
+          title="Audio feedback"
+          subtitle="Enable manual voice playback for AI replies"
           value={user.voiceGuidance}
           onChange={toggleVoice}
           largeText={user.largeText}

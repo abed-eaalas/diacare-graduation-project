@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import ScreenContainer from '../components/ScreenContainer';
 import SectionTitle from '../components/SectionTitle';
@@ -7,10 +7,19 @@ import AppButton from '../components/AppButton';
 import { useApp } from '../context/AppContext';
 import { colors, radius } from '../utils/theme';
 
-export default function MealsScreen() {
-  const { mealPlan, mealLogs, addMealLog, regenerateMealPlan } = useApp();
+const API_BASE = 'http://192.168.0.146:5000';
+const API_URL = `${API_BASE}/api`;
 
-  if (!mealPlan || !mealPlan.breakfast) {
+export default function MealsScreen() {
+  const { mealPlan, mealLogs, addMealLog, user, glucoseLogs, meds } = useApp();
+  const [currentPlan, setCurrentPlan] = useState(mealPlan);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    setCurrentPlan(mealPlan);
+  }, [mealPlan]);
+
+  if (!currentPlan || !currentPlan.breakfast) {
     return (
       <ScreenContainer>
         <Text style={{ textAlign: 'center', marginTop: 40 }}>
@@ -21,11 +30,47 @@ export default function MealsScreen() {
   }
 
   const meals = [
-    { key: 'breakfast', data: mealPlan.breakfast },
-    { key: 'lunch', data: mealPlan.lunch },
-    { key: 'dinner', data: mealPlan.dinner },
-    { key: 'snacks', data: mealPlan.snacks },
+    { key: 'breakfast', data: currentPlan.breakfast },
+    { key: 'lunch', data: currentPlan.lunch },
+    { key: 'dinner', data: currentPlan.dinner },
+    { key: 'snacks', data: currentPlan.snacks },
   ];
+
+  const context = useMemo(() => {
+    const diabetesType = String(user?.diabetesType ?? '').trim();
+    const latest = glucoseLogs && glucoseLogs.length ? glucoseLogs[0] : null;
+    const latestGlucose = latest
+      ? {
+          value: typeof latest.value === 'number' ? latest.value : Number(latest.value),
+          time: latest.time ? String(latest.time) : undefined,
+          context: latest.context ? String(latest.context) : undefined,
+        }
+      : undefined;
+
+    const targetMinRaw = user?.glucoseTargetMin;
+    const targetMaxRaw = user?.glucoseTargetMax;
+    const targetMin = targetMinRaw !== undefined && targetMinRaw !== null ? Number(targetMinRaw) : NaN;
+    const targetMax = targetMaxRaw !== undefined && targetMaxRaw !== null ? Number(targetMaxRaw) : NaN;
+    const targetRange = Number.isFinite(targetMin) && Number.isFinite(targetMax)
+      ? { min: targetMin, max: targetMax, unit: 'mg/dL' }
+      : undefined;
+
+    const medicationsList = Array.isArray(meds)
+      ? meds.slice(0, 6).map((m) => ({
+          name: m?.name,
+          dose: m?.dose,
+          time: m?.time,
+          taken: !!m?.taken,
+        }))
+      : undefined;
+
+    return {
+      ...(diabetesType ? { diabetesType } : {}),
+      ...(latestGlucose && Number.isFinite(latestGlucose.value) ? { latestGlucose } : {}),
+      ...(targetRange ? { targetRange } : {}),
+      ...(medicationsList && medicationsList.length ? { medications: medicationsList } : {}),
+    };
+  }, [user, glucoseLogs, meds]);
 
   const isMealLogged = (mealKey) => {
     return mealLogs?.some((item) => item.mealKey === mealKey);
@@ -43,9 +88,29 @@ export default function MealsScreen() {
     Alert.alert('Meal logged successfully');
   };
 
-  const handleRegenerate = () => {
-    regenerateMealPlan();
-    Alert.alert('New meal plan generated');
+  const handleRegenerate = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch(`${API_URL}/meals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context }),
+      });
+
+      const data = await response.json().catch(() => null);
+      if (response.ok && data && typeof data === 'object') {
+        setCurrentPlan(data);
+        Alert.alert('New meal plan generated');
+      } else {
+        Alert.alert('Could not generate meals right now');
+      }
+    } catch (error) {
+      Alert.alert('Could not generate meals right now');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -85,7 +150,11 @@ export default function MealsScreen() {
         );
       })}
 
-      <AppButton title="Regenerate Meal Plan" onPress={handleRegenerate} />
+      <AppButton
+        title={isGenerating ? 'Generating...' : 'Regenerate Meal Plan'}
+        onPress={isGenerating ? undefined : handleRegenerate}
+        style={isGenerating ? { opacity: 0.6 } : undefined}
+      />
     </ScreenContainer>
   );
 }
