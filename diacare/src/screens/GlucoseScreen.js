@@ -23,6 +23,16 @@ export default function GlucoseScreen() {
   const [value, setValue] = useState('');
   const [context, setContext] = useState('Before Breakfast');
 
+  const latestValue = glucoseLogs[0]?.value;
+  const insightText =
+    latestValue === undefined
+      ? 'Add a reading to see an insight.'
+      : latestValue < 80
+      ? 'Low glucose detected. Consider fast-acting carbs and monitor symptoms.'
+      : latestValue <= 140
+      ? 'Glucose is within a healthy range. Keep maintaining good habits.'
+      : 'High glucose trend detected. Consider hydration, meal balance, and light activity.';
+
   return (
     <ScreenContainer scrollable>
       <SectionTitle title="Glucose tracking" subtitle="Log readings and follow trends" />
@@ -47,7 +57,8 @@ export default function GlucoseScreen() {
           title="Add Reading"
           onPress={() => {
             if (!value) return;
-            addGlucoseLog({ value: Number(value), time: 'Now', context, status: Number(value) > 180 || Number(value) < 70 ? 'danger' : 'good' });
+            const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            addGlucoseLog({ value: Number(value), time, context, status: Number(value) > 180 || Number(value) < 70 ? 'danger' : 'good' });
             setValue('');
           }}
         />
@@ -61,7 +72,7 @@ export default function GlucoseScreen() {
           color={item.status === 'danger' ? '#FDECEC' : item.status === 'warning' ? '#FFF8E1' : '#ECF8EF'}
         />
       ))}
-      <InfoCard title="AI trend insight" subtitle="Pattern estimate: values are more likely to rise after lunch. Consider lower-GI carbs and post-meal walking." />
+      <InfoCard title="AI trend insight" subtitle={insightText} />
     </ScreenContainer>
   );
 }
