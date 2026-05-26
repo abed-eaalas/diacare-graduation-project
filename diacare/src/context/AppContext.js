@@ -61,7 +61,8 @@ export const AppProvider = ({ children }) => {
         const storedUser = await AsyncStorage.getItem('userData');
         if (storedToken && storedUser) {
           setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+          const parsedUser = JSON.parse(storedUser);
+          setUser({ ...initialUser, ...(parsedUser && typeof parsedUser === 'object' ? parsedUser : {}) });
         }
       } catch (error) {
         console.error('Failed to load auth data', error);

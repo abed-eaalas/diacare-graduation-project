@@ -23,7 +23,7 @@ export default function ChatbotScreen() {
 
   const speakLatestBot = () => {
     const bot = [...chatMessages].reverse().find((m) => m.from === 'bot');
-    if (bot && user.voiceGuidance) {
+    if (bot) {
       Speech.speak(bot.text);
     }
   };
