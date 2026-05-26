@@ -28,6 +28,27 @@ export default function DashboardScreen({ navigation }) {
   const medicationTakenCount = meds.filter((m) => m.taken).length;
   const latestAlerts = familyAlerts.slice(0, 2);
 
+  const toNumberOrNull = (value) => {
+    const text = String(value ?? '').trim();
+    if (!text) return null;
+    const num = Number(text);
+    return Number.isFinite(num) ? num : null;
+  };
+
+  const parsedTargetMin = toNumberOrNull(user.glucoseTargetMin);
+  const parsedTargetMax = toNumberOrNull(user.glucoseTargetMax);
+
+  let rangeMin = parsedTargetMin;
+  let rangeMax = parsedTargetMax;
+
+  if ((rangeMin === null || rangeMax === null) && user.targetGlucoseRange) {
+    const parts = String(user.targetGlucoseRange).split('-').map((p) => toNumberOrNull(p));
+    if (rangeMin === null) rangeMin = parts[0] ?? null;
+    if (rangeMax === null) rangeMax = parts[1] ?? null;
+  }
+
+  const hasTargetRange = rangeMin !== null && rangeMax !== null;
+
   return (
     <ScreenContainer scrollable>
       <View style={styles.headerRow}>
@@ -133,7 +154,7 @@ export default function DashboardScreen({ navigation }) {
                     {
                       height,
                       backgroundColor:
-                        item.value >= stats.targetMin && item.value <= stats.targetMax
+                        hasTargetRange && item.value >= rangeMin && item.value <= rangeMax
                           ? theme.colors.primary
                           : '#FFB300',
                     },
@@ -146,32 +167,16 @@ export default function DashboardScreen({ navigation }) {
         </View>
 
         <Text style={styles.rangeText}>
-          Target range: {stats.targetMin} - {stats.targetMax} mg/dL
+          Target range: {hasTargetRange ? `${rangeMin} - ${rangeMax} mg/dL` : 'Not set'}
         </Text>
       </InfoCard>
 
       <InfoCard
-        title="Family overview"
+        title="Recent alerts"
         subtitle="Important health updates in one place"
         color={theme.kidMode ? theme.kidColors.tabPink : '#FFF6FB'}
       >
-        <View style={styles.familySummaryRow}>
-          <View style={styles.familyStatBox}>
-            <Text style={styles.familyStatValue}>{latestValue} mg/dL</Text>
-            <Text style={styles.familyStatLabel}>Latest glucose</Text>
-          </View>
-
-          <View style={styles.familyStatBox}>
-            <Text style={styles.familyStatValue}>
-              {medicationTakenCount}/{meds.length}
-            </Text>
-            <Text style={styles.familyStatLabel}>Medication taken</Text>
-          </View>
-        </View>
-
         <View style={styles.alertsBox}>
-          <Text style={styles.alertsTitle}>Recent alerts</Text>
-
           {latestAlerts.length ? (
             latestAlerts.map((alert) => (
               <View key={alert.id} style={styles.alertItem}>
@@ -201,17 +206,12 @@ export default function DashboardScreen({ navigation }) {
         color={theme.kidMode ? theme.kidColors.tabGreen : theme.colors.card}
       />
 
-      <InfoCard
-        title="GI summary"
-        value={theme.kidMode ? 'Good food choices today' : 'Low to Medium GI day'}
-        subtitle={
-          theme.kidMode
-            ? 'Your meals help keep your sugar more steady.'
-            : 'Meals selected to reduce blood sugar spikes.'
-        }
-        color={theme.kidMode ? theme.kidColors.tabBlue : theme.colors.card}
-      >
-        {theme.canUseKidMode ? (
+      {theme.canUseKidMode ? (
+        <InfoCard
+          title="Kids Mode"
+          subtitle="A simplified, kid-friendly experience"
+          color={theme.kidMode ? theme.kidColors.tabBlue : theme.colors.card}
+        >
           <Pressable
             style={[
               styles.kidsModeButton,
@@ -223,11 +223,21 @@ export default function DashboardScreen({ navigation }) {
             onPress={() => navigation.navigate('KidsMode')}
           >
             <Ionicons name="sparkles-outline" size={18} color={theme.colors.primary} />
-            <Text style={[styles.kidsModeButtonText, { color: theme.colors.text }]}>
-              Open Kids Mode
-            </Text>
+            <Text style={[styles.kidsModeButtonText, { color: theme.colors.text }]}>Open Kids Mode</Text>
           </Pressable>
-        ) : null}
+        </InfoCard>
+      ) : null}
+
+      <InfoCard
+        title="GI summary"
+        value={theme.kidMode ? 'Good food choices today' : 'Low to Medium GI day'}
+        subtitle={
+          theme.kidMode
+            ? 'Your meals help keep your sugar more steady.'
+            : 'Meals selected to reduce blood sugar spikes.'
+        }
+        color={theme.kidMode ? theme.kidColors.tabBlue : theme.colors.card}
+      >
       </InfoCard>
 
       <InfoCard title="Safety" subtitle="Emergency support is one tap away.">
