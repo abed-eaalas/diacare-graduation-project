@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ScreenContainer from '../components/ScreenContainer';
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
@@ -41,7 +41,31 @@ export default function OnboardingScreen() {
 
   const handleChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  const validateRange = (label, rawValue, min, max, unit) => {
+    const text = String(rawValue ?? '').trim();
+    if (!text) return true;
+
+    const value = Number(text);
+    if (Number.isNaN(value)) {
+      Alert.alert(`Invalid ${label}`, `${label} must be a number`);
+      return false;
+    }
+
+    if (value < min || value > max) {
+      const suffix = unit ? ` ${unit}` : '';
+      Alert.alert(`Invalid ${label}`, `${label} must be between ${min} and ${max}${suffix}`);
+      return false;
+    }
+
+    return true;
+  };
+
   const handleNext = () => {
+    if (!validateRange('Weight', form.weight, 20, 300, 'kg')) return;
+    if (!validateRange('Height', form.height, 100, 230, 'cm')) return;
+    if (!validateRange('Target Min', form.glucoseTargetMin, 50, 250)) return;
+    if (!validateRange('Target Max', form.glucoseTargetMax, 60, 400)) return;
+
     if (isLastStep) {
       completeProfile(form);
       return;
@@ -75,9 +99,23 @@ export default function OnboardingScreen() {
       <View style={styles.box}>
         {currentStep.key === 'health' ? (
           <>
-            <AppInput label="Gender" value={form.gender} onChangeText={(t) => handleChange('gender', t)} />
-            <AppInput label="Weight" value={form.weight} onChangeText={(t) => handleChange('weight', t)} />
-            <AppInput label="Height" value={form.height} onChangeText={(t) => handleChange('height', t)} />
+            <Text style={styles.inputLabel}>Gender</Text>
+            <View style={styles.choiceRow}>
+              {['Male', 'Female'].map((gender) => {
+                const isSelected = form.gender === gender;
+                return (
+                  <TouchableOpacity
+                    key={gender}
+                    style={[styles.choiceButton, isSelected && styles.choiceButtonSelected]}
+                    onPress={() => handleChange('gender', gender)}
+                  >
+                    <Text style={[styles.choiceText, isSelected && styles.choiceTextSelected]}>{gender}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <AppInput label="Weight" value={form.weight} onChangeText={(t) => handleChange('weight', t)} keyboardType="numeric" />
+            <AppInput label="Height" value={form.height} onChangeText={(t) => handleChange('height', t)} keyboardType="numeric" />
             <Text style={styles.inputLabel}>Diabetes Type</Text>
             <View style={styles.choiceRow}>
               {['Type 1', 'Type 2'].map((type) => {
