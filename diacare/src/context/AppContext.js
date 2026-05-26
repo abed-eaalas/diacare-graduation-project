@@ -467,6 +467,40 @@ const regenerateMealPlan = () => {
     const trimmed = String(text ?? '').trim();
     if (!trimmed) return;
 
+    const diabetesType = String(user?.diabetesType ?? '').trim();
+    const latest = glucoseLogs && glucoseLogs.length ? glucoseLogs[0] : null;
+    const latestGlucose = latest
+      ? {
+          value: typeof latest.value === 'number' ? latest.value : Number(latest.value),
+          time: latest.time ? String(latest.time) : undefined,
+          context: latest.context ? String(latest.context) : undefined,
+        }
+      : undefined;
+
+    const targetMinRaw = user?.glucoseTargetMin;
+    const targetMaxRaw = user?.glucoseTargetMax;
+    const targetMin = targetMinRaw !== undefined && targetMinRaw !== null ? Number(targetMinRaw) : NaN;
+    const targetMax = targetMaxRaw !== undefined && targetMaxRaw !== null ? Number(targetMaxRaw) : NaN;
+    const targetRange = Number.isFinite(targetMin) && Number.isFinite(targetMax)
+      ? { min: targetMin, max: targetMax, unit: 'mg/dL' }
+      : undefined;
+
+    const medicationsList = Array.isArray(meds)
+      ? meds.slice(0, 6).map((m) => ({
+          name: m?.name,
+          dose: m?.dose,
+          time: m?.time,
+          taken: !!m?.taken,
+        }))
+      : undefined;
+
+    const context = {
+      ...(diabetesType ? { diabetesType } : {}),
+      ...(latestGlucose && Number.isFinite(latestGlucose.value) ? { latestGlucose } : {}),
+      ...(targetRange ? { targetRange } : {}),
+      ...(medicationsList && medicationsList.length ? { medications: medicationsList } : {}),
+    };
+
     const baseId = Date.now().toString();
     const userMessage = { id: baseId, from: 'user', text: trimmed };
     setChatMessages((prev) => [...prev, userMessage]);
@@ -478,7 +512,7 @@ const regenerateMealPlan = () => {
       const response = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({ message: trimmed, context }),
       });
 
       const data = await response.json().catch(() => ({}));

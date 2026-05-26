@@ -50,16 +50,73 @@ const httpsJsonPost = ({ hostname, path, headers, body }) =>
     req.end();
   });
 
-const buildOpenAIRequestBody = (message, model) => {
+const clampString = (value, maxLen) => {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  return text.length > maxLen ? text.slice(0, maxLen) : text;
+};
+
+const clampNumber = (value, { min, max }) => {
+  const num = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(num)) return null;
+  if (num < min) return min;
+  if (num > max) return max;
+  return num;
+};
+
+const buildPatientContextLine = (context) => {
+  if (!context || typeof context !== 'object') return '';
+
+  const diabetesType = clampString(context.diabetesType, 30);
+
+  const latestGlucoseValue = clampNumber(context.latestGlucose?.value, { min: 20, max: 600 });
+  const latestGlucoseTime = clampString(context.latestGlucose?.time, 20);
+  const latestGlucoseContext = clampString(context.latestGlucose?.context, 30);
+
+  const targetMin = clampNumber(context.targetRange?.min, { min: 40, max: 300 });
+  const targetMax = clampNumber(context.targetRange?.max, { min: 40, max: 300 });
+  const targetUnit = clampString(context.targetRange?.unit, 10) || 'mg/dL';
+
+  const medsRaw = Array.isArray(context.medications) ? context.medications.slice(0, 5) : [];
+  const meds = medsRaw
+    .map((m) => {
+      const name = clampString(m?.name, 40);
+      if (!name) return '';
+      const dose = clampString(m?.dose, 20);
+      const time = clampString(m?.time, 20);
+      const taken = m?.taken === true ? ' (taken)' : '';
+      const line = `${name}${dose ? ` ${dose}` : ''}${time ? ` @ ${time}` : ''}${taken}`;
+      return clampString(line, 70);
+    })
+    .filter(Boolean);
+
+  const parts = [];
+  if (diabetesType) parts.push(`Diabetes: ${diabetesType}`);
+  if (latestGlucoseValue !== null) {
+    const extra = [latestGlucoseContext, latestGlucoseTime].filter(Boolean).join(', ');
+    parts.push(`Latest glucose: ${latestGlucoseValue} ${targetUnit}${extra ? ` (${extra})` : ''}`);
+  }
+  if (targetMin !== null && targetMax !== null) parts.push(`Target: ${targetMin}-${targetMax} ${targetUnit}`);
+  if (meds.length) parts.push(`Meds: ${meds.join('; ')}`);
+
+  if (!parts.length) return '';
+  return `Patient context (may be incomplete): ${parts.join(' | ')}`;
+};
+
+const buildOpenAIRequestBody = (message, model, context) => {
   const systemText =
     "You are DiaCare, a supportive diabetes assistant for a student graduation demo. " +
     "Be calm, clear, and practical. Keep answers short (2-4 sentences). " +
-    "Do not claim to be a doctor. If the user mentions severe symptoms, advise emergency help.";
+    "Do not claim to be a doctor. If the user mentions severe symptoms, advise emergency help. " +
+    "When recommending meals or food, prefer Lebanese/Middle Eastern options when appropriate (e.g., labneh, hummus, foul, lentil soup, fattoush, tabbouleh, grilled meats, mujaddara, zaatar manoushe in moderation), explain diabetes-friendly portions, and avoid excessive sugar/refined carbs. Still answer normally for non-Lebanese foods if the user asks about them.";
+
+  const patientContextLine = buildPatientContextLine(context);
+  const systemContent = patientContextLine ? `${systemText}\n\n${patientContextLine}` : systemText;
 
   return {
     model,
     messages: [
-      { role: 'system', content: systemText },
+      { role: 'system', content: systemContent },
       { role: 'user', content: message },
     ],
     temperature: 0.4,
@@ -99,7 +156,8 @@ const chat = async (req, res) => {
   }
 
   try {
-    const requestBody = buildOpenAIRequestBody(message, model);
+    const context = body?.context && typeof body.context === 'object' ? body.context : undefined;
+    const requestBody = buildOpenAIRequestBody(message, model, context);
     const bodyString = JSON.stringify(requestBody);
 
     const { status, json, raw } = await httpsJsonPost({
