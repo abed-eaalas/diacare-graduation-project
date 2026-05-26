@@ -221,6 +221,61 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const updateUserProfile = async (payload) => {
+    // Always update local state first to avoid UI crashes.
+    const nextUser = { ...user, ...payload };
+    setUser(nextUser);
+
+    try {
+      await AsyncStorage.setItem('userData', JSON.stringify(nextUser));
+    } catch (error) {
+      console.error('Failed to persist profile updates', error);
+    }
+
+    if (!token) {
+      return;
+    }
+
+    try {
+      const targetMin = payload.glucoseTargetMin ?? user.glucoseTargetMin;
+      const targetMax = payload.glucoseTargetMax ?? user.glucoseTargetMax;
+
+      const profileUpdate = {
+        ...(payload.name !== undefined ? { fullName: payload.name } : {}),
+        ...(payload.age !== undefined ? { age: payload.age } : {}),
+        ...(payload.gender !== undefined ? { gender: payload.gender } : {}),
+        ...(payload.weight !== undefined ? { weight: payload.weight } : {}),
+        ...(payload.height !== undefined ? { height: payload.height } : {}),
+        ...(payload.diabetesType !== undefined ? { diabetesType: payload.diabetesType } : {}),
+        ...(targetMin && targetMax ? { targetGlucoseRange: `${targetMin}-${targetMax}` } : {}),
+      };
+
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(profileUpdate),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Avoid overwriting local edited name with server 'name' field.
+        if (payload.name !== undefined && data && typeof data === 'object') {
+          delete data.name;
+        }
+
+        const mergedUser = { ...nextUser, ...data };
+        setUser(mergedUser);
+        await AsyncStorage.setItem('userData', JSON.stringify(mergedUser));
+      }
+    } catch (error) {
+      console.log('UPDATE USER PROFILE ERROR', error);
+    }
+  };
+
   const toggleKidMode = () =>
     setUser((prev) => ({ ...prev, kidMode: !prev.kidMode }));
 
@@ -240,6 +295,31 @@ export const AppProvider = ({ children }) => {
         item.id === id ? { ...item, taken: !item.taken } : item
       )
     );
+  };
+
+  const addMedication = (medication) => {
+    const name = String(medication?.name ?? '').trim();
+    const dose = String(medication?.dose ?? '').trim();
+    const time = String(medication?.time ?? '').trim();
+
+    if (!name || !dose || !time) {
+      return false;
+    }
+
+    const newItem = {
+      id: Date.now().toString(),
+      name,
+      dose,
+      time,
+      taken: false,
+    };
+
+    setMeds((prev) => [newItem, ...prev]);
+    return true;
+  };
+
+  const removeMedication = (id) => {
+    setMeds((prev) => prev.filter((item) => item.id !== id));
   };
 
   // ✅ FIXED MEAL LOGIC
@@ -437,11 +517,14 @@ const regenerateMealPlan = () => {
       signup,
       logout,
       completeProfile,
+      updateUserProfile,
       toggleKidMode,
       toggleVoice,
       toggleLargeText,
       addGlucoseLog,
       markMedicationTaken,
+      addMedication,
+      removeMedication,
       sendChatMessage,
       sendEmergencyAlert,
     }),
