@@ -43,7 +43,7 @@ export default function ChatbotScreen() {
   }, [chatMessages]);
 
   return (
-    <ScreenContainer scrollable>
+    <ScreenContainer>
       <KeyboardAvoidingView
         style={styles.wrapper}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

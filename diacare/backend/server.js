@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const { connectDB, isDbConnected } = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 const seedAdmin = require('./utils/seedAdmin');
 
 dotenv.config();
@@ -46,6 +47,7 @@ const startServer = async () => {
 
   // Routes
   app.use('/api/auth', authRoutes);
+  app.use('/api/chat', chatRoutes);
 
   // Error Handling Middleware
   app.use((err, req, res, next) => {

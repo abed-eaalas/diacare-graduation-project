@@ -463,14 +463,39 @@ const regenerateMealPlan = () => {
   setMealPlan(newPlan);
 };
 
-  const sendChatMessage = (text) => {
-    const userMessage = { id: Date.now().toString(), from: 'user', text };
-    const botReply = {
-      id: `${Date.now()}-bot`,
-      from: 'bot',
-      text: 'Stay consistent with your care plan.',
-    };
-    setChatMessages((prev) => [...prev, userMessage, botReply]);
+  const sendChatMessage = async (text) => {
+    const trimmed = String(text ?? '').trim();
+    if (!trimmed) return;
+
+    const baseId = Date.now().toString();
+    const userMessage = { id: baseId, from: 'user', text: trimmed };
+    setChatMessages((prev) => [...prev, userMessage]);
+
+    const fallbackText =
+      "I’m having trouble reaching the AI service right now. I can still help with meals, glucose targets, medication reminders, and what to do in an emergency.";
+
+    try {
+      const response = await fetch(`${API_URL}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: trimmed }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      const replyText = typeof data?.reply === 'string' && data.reply.trim() ? data.reply.trim() : fallbackText;
+
+      const botReply = {
+        id: `${baseId}-bot`,
+        from: 'bot',
+        text: response.ok ? replyText : fallbackText,
+      };
+
+      setChatMessages((prev) => [...prev, botReply]);
+    } catch (error) {
+      console.log('CHAT FETCH ERROR', error);
+      const botReply = { id: `${baseId}-bot`, from: 'bot', text: fallbackText };
+      setChatMessages((prev) => [...prev, botReply]);
+    }
   };
 
   const emergencyContacts = [
