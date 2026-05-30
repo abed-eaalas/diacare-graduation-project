@@ -70,7 +70,7 @@ export default function DashboardScreen({ navigation }) {
 
         <View style={styles.headerTitleWrap}>
           <SectionTitle
-            title={`Hello, ${user.name}`}
+            title={`Hello, ${user.fullName || user.name}`}
             subtitle={
               theme.kidMode
                 ? 'Let’s take care of your health in a fun way'

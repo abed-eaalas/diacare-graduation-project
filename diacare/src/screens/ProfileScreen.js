@@ -16,9 +16,8 @@ export default function ProfileScreen() {
   const [isEditingMedication, setIsEditingMedication] = useState(false);
 
   const [personalForm, setPersonalForm] = useState({
-    name: user.name || '',
+    fullName: user.fullName || user.name || '',
     age: String(user.age || ''),
-    gender: user.gender || '',
     weight: user.weight || '',
     height: user.height || '',
   });
@@ -80,7 +79,7 @@ export default function ProfileScreen() {
       <SectionTitle title="Profile" subtitle="Manage your health setup" />
 
       {!isEditingPersonal ? (
-        <InfoCard title="Patient" value={user.name} subtitle={patientSubtitle}>
+        <InfoCard title="Patient" value={user.fullName || user.name} subtitle={patientSubtitle}>
           <View style={styles.actionRow}>
             <AppButton title="Edit" onPress={() => setIsEditingPersonal(true)} style={styles.actionButton} />
           </View>
@@ -89,19 +88,14 @@ export default function ProfileScreen() {
         <InfoCard title="Edit personal information">
           <AppInput
             label="Full Name"
-            value={personalForm.name}
-            onChangeText={(t) => handlePersonalChange('name', t)}
+            value={personalForm.fullName}
+            onChangeText={(t) => handlePersonalChange('fullName', t)}
           />
           <AppInput
             label="Age"
             value={personalForm.age}
             onChangeText={(t) => handlePersonalChange('age', t)}
             keyboardType="numeric"
-          />
-          <AppInput
-            label="Gender"
-            value={personalForm.gender}
-            onChangeText={(t) => handlePersonalChange('gender', t)}
           />
           <AppInput
             label="Weight"

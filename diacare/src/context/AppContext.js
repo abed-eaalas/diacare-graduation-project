@@ -45,6 +45,35 @@ export const AppProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const fetchAndSyncProfile = async (authToken) => {
+    if (!authToken) return null;
+
+    try {
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      if (!data || typeof data !== 'object') return null;
+
+      setUser((prev) => {
+        const mergedUser = { ...prev, ...data, isLoggedIn: true };
+        AsyncStorage.setItem('userData', JSON.stringify(mergedUser)).catch(() => {});
+        return mergedUser;
+      });
+
+      return data;
+    } catch {
+      return null;
+    }
+  };
+
   // Restore existing mock states
   const [glucoseLogs, setGlucoseLogs] = useState(glucoseReadings);
   const [meds, setMeds] = useState(medications);
@@ -63,6 +92,9 @@ export const AppProvider = ({ children }) => {
           setToken(storedToken);
           const parsedUser = JSON.parse(storedUser);
           setUser({ ...initialUser, ...(parsedUser && typeof parsedUser === 'object' ? parsedUser : {}) });
+
+          // DB is source of truth: refresh profile when token exists.
+          await fetchAndSyncProfile(storedToken);
         }
       } catch (error) {
         console.error('Failed to load auth data', error);
@@ -93,6 +125,9 @@ export const AppProvider = ({ children }) => {
         setToken(data.token);
         await AsyncStorage.setItem('userToken', data.token);
         await AsyncStorage.setItem('userData', JSON.stringify(fullUser));
+
+        // DB is source of truth: pull the full profile after login.
+        await fetchAndSyncProfile(data.token);
       } else {
         const errorMsg = data.message || 'Login failed';
         if (errorMsg.toLowerCase().includes('invalid email or password') || errorMsg.toLowerCase().includes('invalid')) {
@@ -137,6 +172,9 @@ export const AppProvider = ({ children }) => {
         setToken(data.token);
         await AsyncStorage.setItem('userToken', data.token);
         await AsyncStorage.setItem('userData', JSON.stringify(fullUser));
+
+        // DB is source of truth: pull the full profile after signup.
+        await fetchAndSyncProfile(data.token);
       } else {
         const errorMsg = data.message || 'Signup failed';
         if (errorMsg.toLowerCase().includes('buffering timed out')) {
@@ -166,7 +204,6 @@ export const AppProvider = ({ children }) => {
   const completeProfile = async (payload) => {
     const targetGlucoseRange = `${payload.glucoseTargetMin}-${payload.glucoseTargetMax}`;
     const profileUpdate = {
-      gender: payload.gender,
       weight: payload.weight,
       height: payload.height,
       diabetesType: payload.diabetesType,
@@ -242,9 +279,8 @@ export const AppProvider = ({ children }) => {
       const targetMax = payload.glucoseTargetMax ?? user.glucoseTargetMax;
 
       const profileUpdate = {
-        ...(payload.name !== undefined ? { fullName: payload.name } : {}),
+        ...(payload.fullName !== undefined ? { fullName: payload.fullName } : {}),
         ...(payload.age !== undefined ? { age: payload.age } : {}),
-        ...(payload.gender !== undefined ? { gender: payload.gender } : {}),
         ...(payload.weight !== undefined ? { weight: payload.weight } : {}),
         ...(payload.height !== undefined ? { height: payload.height } : {}),
         ...(payload.diabetesType !== undefined ? { diabetesType: payload.diabetesType } : {}),
@@ -263,11 +299,6 @@ export const AppProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok) {
-        // Avoid overwriting local edited name with server 'name' field.
-        if (payload.name !== undefined && data && typeof data === 'object') {
-          delete data.name;
-        }
-
         const mergedUser = { ...nextUser, ...data };
         setUser(mergedUser);
         await AsyncStorage.setItem('userData', JSON.stringify(mergedUser));

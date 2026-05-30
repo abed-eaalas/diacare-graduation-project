@@ -12,7 +12,7 @@ export default function FamilyDashboardScreen() {
   return (
     <ScreenContainer>
       <SectionTitle title="Family dashboard" subtitle="Shared monitoring for trusted relatives" />
-      <InfoCard title="Patient status" value={user.name} subtitle={`Latest glucose: ${glucoseLogs[0].value} mg/dL`} color="#EAF5FF" />
+    <InfoCard title="Patient status" value={user.fullName || user.name} subtitle={`Latest glucose: ${glucoseLogs[0].value} mg/dL`} color="#EAF5FF" />
       <InfoCard title="Medication adherence" value={`${meds.filter((m) => m.taken).length}/${meds.length} taken`} subtitle="Family members can monitor adherence safely." />
       <View style={styles.box}>
         <Text style={styles.heading}>Recent alerts</Text>

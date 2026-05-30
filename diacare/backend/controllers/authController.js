@@ -129,7 +129,6 @@ const updateProfile = async (req, res) => {
     const allowedFields = [
       'fullName',
       'age',
-      'gender',
       'weight',
       'height',
       'diabetesType',
