@@ -11,7 +11,7 @@ const API_BASE = 'http://192.168.0.146:5000';
 const API_URL = `${API_BASE}/api`;
 
 export default function MealsScreen() {
-  const { mealPlan, mealLogs, addMealLog, user, glucoseLogs, meds } = useApp();
+  const { mealPlan, mealLogs, addMealLog, user, glucoseLogs, meds, markMealPlanGenerated, setMealPlanFromApi } = useApp();
   const [currentPlan, setCurrentPlan] = useState(mealPlan);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -92,6 +92,9 @@ export default function MealsScreen() {
     if (isGenerating) return;
     setIsGenerating(true);
 
+    // Presentation-safe: count the user's generation action even if the network fails.
+    markMealPlanGenerated?.();
+
     try {
       const response = await fetch(`${API_URL}/meals`, {
         method: 'POST',
@@ -102,6 +105,7 @@ export default function MealsScreen() {
       const data = await response.json().catch(() => null);
       if (response.ok && data && typeof data === 'object') {
         setCurrentPlan(data);
+        setMealPlanFromApi?.(data);
         Alert.alert('New meal plan generated');
       } else {
         Alert.alert('Could not generate meals right now');

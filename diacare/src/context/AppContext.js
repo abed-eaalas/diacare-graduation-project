@@ -81,6 +81,7 @@ export const AppProvider = ({ children }) => {
   const [alerts, setAlerts] = useState(initialFamilyAlerts);
   const [mealLogs, setMealLogs] = useState([]);
   const [mealPlan, setMealPlan] = useState(initialMealPlan);
+  const [mealPlanGenerations, setMealPlanGenerations] = useState(0);
 
   // Load token on startup
   useEffect(() => {
@@ -493,7 +494,17 @@ const regenerateMealPlan = () => {
   };
 
   setMealPlan(newPlan);
+  setMealPlanGenerations((prev) => prev + 1);
 };
+
+  const markMealPlanGenerated = () => {
+    setMealPlanGenerations((prev) => prev + 1);
+  };
+
+  const setMealPlanFromApi = (nextPlan) => {
+    if (!nextPlan || typeof nextPlan !== 'object') return;
+    setMealPlan(nextPlan);
+  };
 
   const sendChatMessage = async (text) => {
     const trimmed = String(text ?? '').trim();
@@ -589,6 +600,16 @@ const regenerateMealPlan = () => {
     rewardPoints: glucoseLogs.length * 10 + mealLogs.length * 5,
   };
 
+  const achievementStats = {
+    glucoseLogCount: Array.isArray(glucoseLogs) ? glucoseLogs.length : 0,
+    mealLogCount: Array.isArray(mealLogs) ? mealLogs.length : 0,
+    userChatCount: Array.isArray(chatMessages)
+      ? chatMessages.filter((m) => m && m.from === 'user').length
+      : 0,
+    mealPlanGenerationCount: mealPlanGenerations,
+    anyMedicationTaken: Array.isArray(meds) ? meds.some((m) => !!m?.taken) : false,
+  };
+
   const value = useMemo(
     () => ({
       user,
@@ -599,11 +620,14 @@ const regenerateMealPlan = () => {
       mealLogs,           // ✅ FIX
       addMealLog,         // ✅ FIX
       regenerateMealPlan, // ✅ FIX
+      markMealPlanGenerated,
+      setMealPlanFromApi,
       familyAlerts: alerts,
       emergencyContacts,
       chatMessages,
       kidLessons,
       stats,
+      achievementStats,
       login,
       signup,
       logout,
@@ -619,7 +643,17 @@ const regenerateMealPlan = () => {
       sendChatMessage,
       sendEmergencyAlert,
     }),
-    [user, isLoading, glucoseLogs, meds, mealLogs, alerts, chatMessages, mealPlan]
+    [
+      user,
+      isLoading,
+      glucoseLogs,
+      meds,
+      mealLogs,
+      alerts,
+      chatMessages,
+      mealPlan,
+      mealPlanGenerations,
+    ]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

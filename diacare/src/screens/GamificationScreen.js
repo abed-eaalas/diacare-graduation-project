@@ -1,114 +1,115 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import ScreenContainer from '../components/ScreenContainer';
 import SectionTitle from '../components/SectionTitle';
 import { useApp } from '../context/AppContext';
 import { colors, radius, spacing } from '../utils/theme';
 
 export default function GamificationScreen() {
-  const { healthyRewards, stats } = useApp();
+  const { achievementStats } = useApp();
+
+  const achievements = useMemo(() => {
+    const glucoseLogCount = Number(achievementStats?.glucoseLogCount ?? 0);
+    const mealLogCount = Number(achievementStats?.mealLogCount ?? 0);
+    const userChatCount = Number(achievementStats?.userChatCount ?? 0);
+    const mealPlanGenerationCount = Number(achievementStats?.mealPlanGenerationCount ?? 0);
+    const anyMedicationTaken = !!achievementStats?.anyMedicationTaken;
+
+    return [
+      {
+        key: 'firstGlucose',
+        icon: '🩸',
+        title: 'First Glucose Logged',
+        description: 'Log your first glucose reading',
+        unlocked: glucoseLogCount >= 1,
+      },
+      {
+        key: 'mealTracker',
+        icon: '🥗',
+        title: 'Meal Tracker',
+        description: 'Log 3 meals',
+        unlocked: mealLogCount >= 3,
+        progressText: `${Math.min(mealLogCount, 3)}/3`,
+      },
+      {
+        key: 'aiExplorer',
+        icon: '🤖',
+        title: 'AI Explorer',
+        description: 'Ask the AI assistant 3 questions',
+        unlocked: userChatCount >= 3,
+        progressText: `${Math.min(userChatCount, 3)}/3`,
+      },
+      {
+        key: 'healthyDay',
+        icon: '🍽️',
+        title: 'Healthy Day',
+        description: 'Generate a meal plan',
+        unlocked: mealPlanGenerationCount >= 1,
+      },
+      {
+        key: 'medReminder',
+        icon: '💊',
+        title: 'Medication Reminder',
+        description: 'Mark medication as taken',
+        unlocked: anyMedicationTaken,
+      },
+    ];
+  }, [achievementStats]);
 
   return (
     <ScreenContainer scrollable>
       <SectionTitle
-        title="Healthy rewards"
-        subtitle="These rewards are based on your real health stats in the app"
+        title="Achievements"
+        subtitle="Simple health badges based on your activity"
       />
 
-      <View style={styles.scoreCard}>
-        <Text style={styles.big}>{stats.rewardPoints} points</Text>
-        <Text style={styles.sub}>Level {stats.level}</Text>
-      </View>
+      {achievements.map((item) => {
+        const faded = !item.unlocked;
 
-      <View style={styles.statsCard}>
-        <Text style={styles.statsTitle}>Real stats used for rewards</Text>
-        <Text style={styles.statsText}>
-          Glucose logs: {stats.totalGlucoseLogs} × 10 points
-        </Text>
-        <Text style={styles.statsText}>
-          Meal logs: {stats.totalMealLogs} × 5 points
-        </Text>
-        <Text style={styles.statsText}>
-          In-range readings: {stats.inRangeCount} ({stats.targetMin} - {stats.targetMax} mg/dL)
-        </Text>
-        <Text style={styles.statsText}>
-          Medication taken: {stats.medicationTakenCount}/{stats.medicationTotal} × 10 points
-        </Text>
-        <Text style={styles.statsText}>
-          Medication adherence: {stats.medicationAdherence}%
-        </Text>
-      </View>
+        return (
+          <View
+            key={item.key}
+            style={[styles.card, faded && styles.cardLocked]}
+          >
+            <View style={styles.left}>
+              <View style={styles.iconWrap}>
+                <Text style={styles.icon}>{item.icon || '🏆'}</Text>
+              </View>
+            </View>
 
-      {healthyRewards.map((item) => (
-        <View key={item.id} style={styles.rewardCard}>
-          <View style={styles.iconWrap}>
-            <Text style={styles.icon}>{item.icon}</Text>
-          </View>
+            <View style={styles.middle}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.description}>{item.description}</Text>
 
-          <View style={styles.textWrap}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.description}>{item.description}</Text>
+              <View style={styles.statusRow}>
+                <View style={[styles.statusBadge, item.unlocked ? styles.badgeUnlocked : styles.badgeLocked]}>
+                  <Text style={[styles.statusText, item.unlocked ? styles.textUnlocked : styles.textLocked]}>
+                    {item.unlocked ? 'Unlocked' : 'Locked'}
+                  </Text>
+                </View>
+                {item.progressText ? (
+                  <Text style={styles.progressText}>{item.progressText}</Text>
+                ) : null}
+              </View>
+            </View>
 
-            <View
-              style={[
-                styles.statusBadge,
-                item.unlocked ? styles.unlockedBadge : styles.progressBadge,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusText,
-                  item.unlocked ? styles.unlockedText : styles.progressText,
-                ]}
-              >
-                {item.unlocked ? 'Unlocked' : 'In Progress'}
-              </Text>
+            <View style={styles.right}>
+              <Ionicons
+                name={item.unlocked ? 'checkmark-circle' : 'lock-closed'}
+                size={22}
+                color={item.unlocked ? colors.primary : colors.muted}
+              />
             </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  scoreCard: {
-    backgroundColor: '#EAF5FF',
-    padding: spacing.lg,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  big: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  sub: {
-    marginTop: 8,
-    color: colors.muted,
-  },
-  statsCard: {
-    backgroundColor: colors.card,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  statsTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  statsText: {
-    color: colors.muted,
-    marginBottom: 6,
-    fontSize: 14,
-  },
-  rewardCard: {
+  card: {
     backgroundColor: colors.card,
     padding: spacing.md,
     borderRadius: radius.lg,
@@ -118,20 +119,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
+  cardLocked: {
+    opacity: 0.55,
+  },
+  left: {
+    marginRight: 12,
+  },
   iconWrap: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#EAF5FF',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   icon: {
     fontSize: 24,
   },
-  textWrap: {
+  middle: {
     flex: 1,
+  },
+  right: {
+    marginLeft: 10,
+    paddingTop: 2,
   },
   title: {
     color: colors.text,
@@ -145,26 +157,38 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 10,
   },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   statusBadge: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
-  unlockedBadge: {
-    backgroundColor: '#E8F7EC',
+  badgeUnlocked: {
+    borderColor: colors.primary,
   },
-  progressBadge: {
-    backgroundColor: '#FFF4D6',
+  badgeLocked: {
+    borderColor: colors.border,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '700',
   },
-  unlockedText: {
-    color: '#1E8E3E',
+  textUnlocked: {
+    color: colors.primary,
+  },
+  textLocked: {
+    color: colors.muted,
   },
   progressText: {
-    color: '#B7791F',
+    marginLeft: 10,
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
